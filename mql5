@@ -1,0 +1,97 @@
+
+// Developer: Forex Robot Easy Team
+// Developer's site: forexroboteasy.com
+// Program name: Semi Auto OTE Plus
+
+// Include necessary trade functions
+#include <Trade\Trade.mqh>
+
+// Define constants
+#define FIB_LEVEL_COUNT 3
+
+// Define Fibonacci levels
+double fibonacciLevels[FIB_LEVEL_COUNT] = {0.382, 0.618, 1.0};
+
+// Function to calculate Fibonacci levels
+double[] CalculateFibonacciLevels(double entryPrice)
+{
+    double[] levels;
+    ArrayResize(levels, FIB_LEVEL_COUNT);
+    
+    for(int i = 0; i < FIB_LEVEL_COUNT; i++)
+    {
+        levels[i] = entryPrice * fibonacciLevels[i];
+    }
+    
+    return levels;
+}
+
+// Function to execute orders based on Fibonacci levels
+void ExecuteOrders(double[] levels)
+{
+    double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+    
+    for(int i = 0; i < FIB_LEVEL_COUNT; i++)
+    {
+        if(currentPrice >= levels[i])
+        {
+            // Place buy order
+            double lotSize = AccountFreeMargin() * 0.01;
+            OrderSend(_Symbol, OP_BUY, lotSize, currentPrice, 0, 0, 0, 'Buy Order', 0, 0, Green);
+            
+            // Place sell order
+            OrderSend(_Symbol, OP_SELL, lotSize, currentPrice, 0, 0, 0, 'Sell Order', 0, 0, Red);
+            
+            break;
+        }
+    }
+}
+
+// Function to protect open positions when in profit
+void ProtectPositions()
+{
+    int totalOrders = OrdersTotal();
+    
+    for(int i = 0; i < totalOrders; i++)
+    {
+        if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            if(OrderType() == OP_BUY)
+            {
+                double profit = OrderProfit();
+                
+                if(profit > 0)
+                {
+                    // Move stop loss to breakeven
+                    double stopLoss = OrderOpenPrice();
+                    OrderModify(OrderTicket(), OrderOpenPrice(), stopLoss, OrderTakeProfit(), 0, Green);
+                }
+            }
+            else if(OrderType() == OP_SELL)
+            {
+                double profit = OrderProfit();
+                
+                if(profit > 0)
+                {
+                    // Move stop loss to breakeven
+                    double stopLoss = OrderOpenPrice();
+                    OrderModify(OrderTicket(), OrderOpenPrice(), stopLoss, OrderTakeProfit(), 0, Red);
+                }
+            }
+        }
+    }
+}
+
+// Entry point of the EA
+void OnTick()
+{
+    // Analyze chart and draw OTE Fibonacci
+    double entryPrice = High[0];
+    double[] fibonacciLevels = CalculateFibonacciLevels(entryPrice);
+    
+    // Execute orders based on Fibonacci levels
+    ExecuteOrders(fibonacciLevels);
+    
+    // Protect open positions when in profit
+    ProtectPositions();
+}
